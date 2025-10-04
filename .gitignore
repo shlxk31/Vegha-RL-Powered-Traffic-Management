@@ -1,0 +1,13 @@
+# Node modules
+node_modules/
+
+# Hidden files
+.*
+!.gitignore
+!.git
+!.github/
+
+# Optional: Keep specific hidden files if needed
+!.env.example
+!.vscode/
+!.eslintrc
