@@ -27,6 +27,8 @@
     "react-dom": "19.1.0",
     "react-leaflet": "^5.0.0",
     "recharts": "^3.2.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "three": "^0.180.0",
     "websockets": "^0.2.0"
   },
