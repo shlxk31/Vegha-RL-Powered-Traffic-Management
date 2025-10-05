@@ -16,6 +16,7 @@ import {
   BarChart3
 } from 'lucide-react'
 import { getDashboard, formatWaitTime, getCongestionColor, getAlertColor } from '@/lib/api'
+import Card from './Card'
 
 // Enhanced Loading component
 function DashboardSkeleton() {
@@ -143,148 +144,91 @@ async function DashboardContent() {
       {/* Enhanced Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Total Junctions Card */}
-        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Junctions</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {data.traffic_overview.total_junctions}
-              </p>
-              <div className="flex items-center mt-2">
-                <Eye className="w-4 h-4 text-blue-500 mr-1" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">Monitoring all</span>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-blue-500/25 transition-shadow duration-300">
-                <MapPin className="w-8 h-8 text-white" />
-              </div>
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                <BarChart3 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card
+          title="Total Junctions"
+          value={data.traffic_overview.total_junctions}
+          icon={MapPin}
+          iconBgColor="bg-gradient-to-br from-blue-500 to-blue-600"
+          subtitle="Monitoring all"
+          badge={{
+            text: "📊",
+            color: "text-blue-600 dark:text-blue-400",
+            bgColor: "bg-blue-100 dark:bg-blue-900"
+          }}
+        />
 
         {/* Active Junctions Card */}
-        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Active Junctions</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {data.traffic_overview.active_junctions}
-              </p>
-              <div className="flex items-center mt-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                  {operationalPercentage}% operational
-                </span>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-green-500/25 transition-shadow duration-300">
-                <Activity className="w-8 h-8 text-white" />
-              </div>
-              <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                <Zap className="w-3 h-3 text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card
+          title="Active Junctions"
+          value={data.traffic_overview.active_junctions}
+          icon={Activity}
+          iconBgColor="bg-gradient-to-br from-green-500 to-emerald-600"
+          status={{
+            text: `${operationalPercentage}% operational`,
+            color: "text-green-600 dark:text-green-400",
+            dotColor: "bg-green-500 animate-pulse"
+          }}
+          badge={{
+            text: "⚡",
+            color: "text-green-600 dark:text-green-400",
+            bgColor: "bg-green-100 dark:bg-green-900"
+          }}
+        />
 
         {/* Average Congestion Card */}
-        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Avg Congestion</p>
-              <p className={`text-3xl font-bold capitalize mt-2 ${getCongestionColor(data.traffic_overview.average_congestion)}`}>
-                {data.traffic_overview.average_congestion}
-              </p>
-              <div className="flex items-center mt-2">
-                <div className={`w-2 h-2 rounded-full mr-2 ${
-                  data.traffic_overview.average_congestion === 'light' ? 'bg-green-500' :
-                  data.traffic_overview.average_congestion === 'moderate' ? 'bg-yellow-500' : 'bg-red-500'
-                }`}></div>
-                <span className="text-xs text-gray-500 dark:text-gray-400">City-wide average</span>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-orange-500/25 transition-shadow duration-300">
-                <Car className="w-8 h-8 text-white" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card
+          title="Avg Congestion"
+          value={data.traffic_overview.average_congestion}
+          icon={Car}
+          iconBgColor="bg-gradient-to-br from-orange-500 to-red-500"
+          subtitle="City-wide average"
+          status={{
+            text: "City-wide average",
+            color: "text-gray-500 dark:text-gray-400",
+            dotColor: data.traffic_overview.average_congestion === 'light' ? 'bg-green-500' :
+                     data.traffic_overview.average_congestion === 'moderate' ? 'bg-yellow-500' : 'bg-red-500'
+          }}
+        />
 
         {/* Total Vehicles Card */}
-        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Vehicles</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {data.current_metrics.total_vehicles.toLocaleString()}
-              </p>
-              <div className="flex items-center mt-2">
-                <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                <span className="text-xs text-green-600 dark:text-green-400">+5.2% vs yesterday</span>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-purple-500/25 transition-shadow duration-300">
-                <Car className="w-8 h-8 text-white" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card
+          title="Total Vehicles"
+          value={data.current_metrics.total_vehicles.toLocaleString()}
+          icon={Car}
+          iconBgColor="bg-gradient-to-br from-purple-500 to-indigo-600"
+          trend={{
+            value: "+5.2% vs yesterday",
+            isPositive: true,
+            icon: TrendingUp
+          }}
+        />
 
         {/* Emergency Vehicles Card */}
-        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Emergency Vehicles</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {data.current_metrics.emergency_vehicles}
-              </p>
-              <div className="flex items-center mt-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse mr-2"></div>
-                <span className="text-xs text-red-600 dark:text-red-400">Active responses</span>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-red-500/25 transition-shadow duration-300">
-                <Truck className="w-8 h-8 text-white" />
-              </div>
-              {data.current_metrics.emergency_vehicles > 0 && (
-                <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold text-red-600 dark:text-red-400">
-                    {data.current_metrics.emergency_vehicles}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <Card
+          title="Emergency Vehicles"
+          value={data.current_metrics.emergency_vehicles}
+          icon={Truck}
+          iconBgColor="bg-gradient-to-br from-red-500 to-pink-600"
+          status={{
+            text: "Active responses",
+            color: "text-red-600 dark:text-red-400",
+            dotColor: "bg-red-500 animate-pulse"
+          }}
+          badge={data.current_metrics.emergency_vehicles > 0 ? {
+            text: data.current_metrics.emergency_vehicles.toString(),
+            color: "text-red-600 dark:text-red-400",
+            bgColor: "bg-red-100 dark:bg-red-900"
+          } : undefined}
+        />
 
         {/* Active Events Card */}
-        <div className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Active Events</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {data.current_metrics.active_events}
-              </p>
-              <div className="flex items-center mt-2">
-                <Calendar className="w-4 h-4 text-purple-500 mr-1" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">Ongoing incidents</span>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-purple-500/25 transition-shadow duration-300">
-                <Calendar className="w-8 h-8 text-white" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <Card
+          title="Active Events"
+          value={data.current_metrics.active_events}
+          icon={Calendar}
+          iconBgColor="bg-gradient-to-br from-purple-500 to-violet-600"
+          subtitle="Ongoing incidents"
+        />
       </div>
 
       {/* Enhanced Wait Time Card */}

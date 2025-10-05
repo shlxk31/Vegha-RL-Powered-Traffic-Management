@@ -19,7 +19,7 @@ export default function LayoutWrapper({
       {/* Main content */}
       <div className={isDashboard ? "md:pl-64 pt-16" : ""}>
         <main className={isDashboard ? "py-6" : ""}>
-          <div className={isDashboard ? "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8" : ""}>
+          <div className={isDashboard ? "mx-auto max-w-screen px-4 sm:px-6 lg:px-8" : ""}>
             {children}
           </div>
         </main>

@@ -191,7 +191,7 @@ const ProjectVeghaLanding = () => {
 
       {/* Problem Section */}
       <section className="py-24 px-6 bg-white dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-screen mx-auto">
           <motion.div
             className="text-center mb-16"
             initial={{ opacity: 0, y: 30 }}
@@ -265,7 +265,7 @@ const ProjectVeghaLanding = () => {
 
       {/* Solution Section */}
       <section className="py-24 px-6 bg-gradient-to-br from-blue-100 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-screen mx-auto">
           <motion.div
             className="text-center mb-20"
             initial={{ opacity: 0, y: 30 }}
@@ -398,7 +398,7 @@ const ProjectVeghaLanding = () => {
 
       {/* Impact Section */}
       <section className="py-24 px-6 bg-gradient-to-br from-blue-100 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-screen mx-auto">
           <motion.div
             className="text-center mb-20"
             initial={{ opacity: 0, y: 30 }}

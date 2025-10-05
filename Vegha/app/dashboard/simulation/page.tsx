@@ -3,6 +3,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
+import Card from '@/components/Card';
+import { 
+  Activity, 
+  Car, 
+  Clock, 
+  Play, 
+  Pause, 
+  RotateCcw, 
+  TrafficCone, 
+  Timer, 
+  MapPin, 
+  AlertTriangle,
+  TrendingUp,
+  Users,
+  Zap
+} from 'lucide-react';
 
 interface SimulationMetrics {
   vehicleCount: number;
@@ -10,15 +26,8 @@ interface SimulationMetrics {
   waiting: number;
   simTime: number;
   signals: number;
-}
-
-interface MetricCardProps {
-  label: string;
-  value: number | string;
-  icon: string;
-  color: string;
-  unit?: string;
-  status?: string;
+  avgWaitTime: number;
+  congestionPercent: number;
 }
 
 export default function SimulationPage() {
@@ -33,7 +42,9 @@ export default function SimulationPage() {
     avgSpeed: 0,
     waiting: 0,
     simTime: 0,
-    signals: 12
+    signals: 12,
+    avgWaitTime: 0.0,
+    congestionPercent: 0
   });
 
   useEffect(() => {
@@ -68,7 +79,9 @@ export default function SimulationPage() {
         avgSpeed: data.avg_speed || 0,
         waiting: data.waiting || 0,
         simTime: data.time || 0,
-        signals: Object.keys(data.traffic_lights || {}).length
+        signals: Object.keys(data.traffic_lights || {}).length,
+        avgWaitTime: data.avg_wait_time || 0.0,
+        congestionPercent: data.congestion_percent || 0
       });
     });
 
@@ -98,52 +111,6 @@ export default function SimulationPage() {
     window.location.reload();
   };
 
-  const MetricCard: React.FC<MetricCardProps> = ({ 
-    label, 
-    value, 
-    icon, 
-    color, 
-    unit = '',
-    status = ''
-  }) => (
-    <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6 hover:border-gray-600 transition-all duration-300">
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-gray-400 text-xs font-medium uppercase tracking-wider">
-          {label}
-        </div>
-        <div 
-          className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl shadow-lg"
-          style={{ 
-            backgroundColor: color + '20', 
-            color: color,
-            boxShadow: `0 0 20px ${color}40`
-          }}
-        >
-          {icon}
-        </div>
-      </div>
-      
-      <div className="flex items-baseline gap-2 mb-2">
-        <div 
-          className="text-4xl font-bold tabular-nums" 
-          style={{ color: color }}
-        >
-          {value}
-        </div>
-        {unit && (
-          <div className="text-gray-500 text-sm font-medium">{unit}</div>
-        )}
-      </div>
-      
-      <div className="flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-500'} animate-pulse`}></div>
-        <div className="text-xs text-gray-600">
-          {status || (isConnected ? 'Network total' : 'Disconnected')}
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
       <div className="p-6">
@@ -168,7 +135,7 @@ export default function SimulationPage() {
         </div>
 
         {/* SUMO Simulation Iframe Container */}
-        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl overflow-hidden mb-6 h-[calc(60vh-100px)]">
+        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl overflow-hidden mb-6 h-[calc(100vh-100px)]">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
@@ -211,86 +178,79 @@ export default function SimulationPage() {
         </div>
 
         {/* Metrics Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <MetricCard
-            label="Simulation Step"
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-6">
+          <Card
+            title="Simulation Step"
             value={metrics.simTime}
-            icon="📈"
-            color="#4facfe"
-            unit="s"
-            status="Current simulation step"
+            icon={Activity}
+            iconBgColor="bg-gradient-to-br from-blue-500 to-blue-600"
+            subtitle="Current simulation step"
+            status={{
+              text: isConnected ? 'Live' : 'Disconnected',
+              color: isConnected ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400',
+              dotColor: isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
+            }}
           />
-          <MetricCard
-            label="Total Vehicles"
+          
+          <Card
+            title="Total Vehicles"
             value={metrics.vehicleCount}
-            icon="🚗"
-            color="#FFD700"
-            status="Active vehicles in simulation"
+            icon={Car}
+            iconBgColor="bg-gradient-to-br from-purple-500 to-indigo-600"
+            subtitle="Active vehicles in simulation"
+            status={{
+              text: isConnected ? 'Live count' : 'Static',
+              color: isConnected ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400',
+              dotColor: isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
+            }}
           />
-          <MetricCard
-            label="Waiting Vehicles"
+          
+          <Card
+            title="Waiting Vehicles"
             value={metrics.waiting}
-            icon="🚦"
-            color="#f5576c"
-            status="Vehicles waiting at signals"
+            icon={TrafficCone}
+            iconBgColor="bg-gradient-to-br from-orange-500 to-red-500"
+            subtitle="Vehicles waiting at signals"
+            status={{
+              text: isConnected ? 'Real-time' : 'Calculated',
+              color: isConnected ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400',
+              dotColor: isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
+            }}
           />
-          <MetricCard
-            label="Average Speed"
-            value={metrics.avgSpeed}
-            icon="⚡"
-            color="#38ef7d"
-            unit="km/h"
-            status="Mean vehicle speed"
+          
+          <Card
+            title="Average Speed"
+            value={`${metrics.avgSpeed.toFixed(1)} km/h`}
+            icon={Clock}
+            iconBgColor="bg-gradient-to-br from-green-500 to-emerald-600"
+            subtitle="Mean vehicle speed"
+            status={{
+              text: isConnected ? 'Real-time' : 'Calculated',
+              color: isConnected ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400',
+              dotColor: isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-500'
+            }}
           />
-          <MetricCard
-            label="Total Signals"
+          
+          <Card
+            title="Total Signals"
             value={metrics.signals}
-            icon="🚨"
-            color="#00ff00"
-            status="Traffic signals in network"
+            icon={MapPin}
+            iconBgColor="bg-gradient-to-br from-cyan-500 to-blue-500"
+            subtitle="Traffic signals in network"
+            status={{
+              text: 'Network total',
+              color: 'text-gray-500 dark:text-gray-400',
+              dotColor: 'bg-gray-500'
+            }}
           />
         </div>
 
         {/* Additional Metrics Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-blue-500/20 rounded-lg flex items-center justify-center text-3xl">
-                🌐
-              </div>
-              <div>
-                <div className="text-gray-400 text-sm">Active Signals</div>
-                <div className="text-2xl font-bold text-blue-400">{metrics.signals}</div>
-                <div className="text-xs text-gray-500">Static</div>
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-orange-500/20 rounded-lg flex items-center justify-center text-3xl">
-                ⏱️
-              </div>
-              <div>
-                <div className="text-gray-400 text-sm">Average Wait Time</div>
-                <div className="text-2xl font-bold text-orange-400">0.0s</div>
-                <div className="text-xs text-gray-500">Calculated</div>
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-pink-500/20 rounded-lg flex items-center justify-center text-3xl">
-                ⚠️
-              </div>
-              <div>
-                <div className="text-gray-400 text-sm">Congestion Level</div>
-                <div className="text-2xl font-bold text-pink-400">0%</div>
-                <div className="text-xs text-gray-500">Calculated</div>
-              </div>
-            </div>
-          </div>
+
+
         </div>
 
         {/* Connection Info Panel */}
