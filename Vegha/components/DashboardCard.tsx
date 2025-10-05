@@ -362,7 +362,7 @@ async function DashboardContent() {
 export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      <div className="p-6 lg:p-8">
+      <div className="">
         {/* Enhanced Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-3 mb-2">

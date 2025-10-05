@@ -16,7 +16,7 @@ export default function SimulationPage() {
   const fetchSumoEndpoint = async () => {
     try {
       // Replace with your actual backend API endpoint
-      const response = await fetch('http://localhost:5000/api/sumo/endpoint');
+      const response = await fetch('http://localhost:5000/');
       const data = await response.json();
       
       setSumoUrl(data.url || 'http://localhost:8080');
@@ -36,7 +36,7 @@ export default function SimulationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="p-6">
+      <div className="">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -82,7 +82,7 @@ export default function SimulationPage() {
             </div>
           ) : (
             <iframe
-              src={sumoUrl}
+              src="http://localhost:5000/"
               className="w-full h-full border-0"
               title="SUMO Traffic Simulation"
               allow="fullscreen"
