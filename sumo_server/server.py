@@ -1,326 +1,70 @@
-from flask import Flask, render_template_string
+from flask import Flask, render_template, jsonify
 from flask_socketio import SocketIO
 import traci
 import threading
 import time
+from flask import Flask, send_file, jsonify
 
+BOUNDS = {
+    'min_lat': 52.520,
+    'max_lat': 52.531,
+    'min_lon': 13.385,
+    'max_lon': 13.405
+}
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-HTML = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; overflow: hidden; }
-        #map { height: calc(100vh - 60px); width: 100%; }
-        
-        .metrics-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0.95));
-            padding: 10px 20px;
-            display: flex;
-            justify-content: space-around;
-            z-index: 1000;
-            color: white;
-            height: 60px;
-            align-items: center;
-        }
-        
-        .metric {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 3px;
-        }
-        
-        .metric-label {
-            font-size: 10px;
-            opacity: 0.7;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .metric-value {
-            font-size: 20px;
-            font-weight: bold;
-        }
-        
-        .controls {
-            position: absolute;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 8px 18px;
-            border-radius: 30px;
-            display: flex;
-            gap: 10px;
-        }
-        
-        .btn {
-            background: none;
-            border: 2px solid white;
-            color: white;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .btn:hover {
-            background: white;
-            color: black;
-            transform: scale(1.1);
-        }
-        
-        .btn.active {
-            background: #4CAF50;
-            border-color: #4CAF50;
-        }
-        
-        .traffic-light-line {
-            width: 30px;
-            height: 4px;
-            border-radius: 2px;
-            box-shadow: 0 0 10px currentColor;
-        }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    
-    <div class="controls">
-        <button class="btn" id="playBtn" onclick="togglePlay()">▶</button>
-        <button class="btn" onclick="resetSim()">↻</button>
-        <button class="btn" id="speedBtn" onclick="speedUp()">1x</button>
-    </div>
-    
-    <div class="metrics-bar">
-        <div class="metric">
-            <div class="metric-label">Vehicles</div>
-            <div class="metric-value" id="vehicle-count" style="color:#FFD700;">0</div>
-        </div>
-        <div class="metric">
-            <div class="metric-label">Avg Speed</div>
-            <div class="metric-value" id="avg-speed" style="color:#4facfe;">0</div>
-        </div>
-        <div class="metric">
-            <div class="metric-label">Waiting</div>
-            <div class="metric-value" id="waiting" style="color:#f5576c;">0</div>
-        </div>
-        <div class="metric">
-            <div class="metric-label">Time</div>
-            <div class="metric-value" id="sim-time" style="color:#38ef7d;">0s</div>
-        </div>
-        <div class="metric">
-            <div class="metric-label">Signals</div>
-            <div class="metric-value" id="signals" style="color:#00ff00;">0</div>
-        </div>
-    </div>
-    
-    <script>
-        var map = L.map('map', {
-            zoomControl: true,
-            attributionControl: false
-        }).setView([52.520, 13.405], 16);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        
-        var vehicles = {};
-        var trafficLights = {};
-        var socket = io();
-        var isPlaying = false;
-        var playSpeed = 1;
-        
-        function getVehicleSVG(type, angle) {
-            var svg = '';
-            var color = '';
-            var width = 20;
-            var height = 10;
-            
-            if(type === 'passenger') {
-                color = '#FFD700';
-                width = 18;
-                height = 10;
-                svg = `<svg width="${width}" height="${height}" style="transform: rotate(${angle}deg);">
-                    <rect x="2" y="2" width="14" height="6" rx="2" fill="${color}" stroke="#FF8C00" stroke-width="1"/>
-                    <rect x="4" y="3" width="4" height="2" fill="#87CEEB" opacity="0.8"/>
-                    <rect x="10" y="3" width="4" height="2" fill="#87CEEB" opacity="0.8"/>
-                </svg>`;
-            } else if(type === 'truck') {
-                color = '#8B4513';
-                width = 26;
-                height = 12;
-                svg = `<svg width="${width}" height="${height}" style="transform: rotate(${angle}deg);">
-                    <rect x="2" y="2" width="22" height="8" rx="1" fill="${color}" stroke="#3E2723" stroke-width="1"/>
-                    <rect x="16" y="3" width="5" height="3" fill="#654321"/>
-                    <rect x="4" y="3" width="10" height="4" fill="#A0522D"/>
-                </svg>`;
-            } else if(type === 'bus') {
-                color = '#FF6347';
-                width = 30;
-                height = 12;
-                svg = `<svg width="${width}" height="${height}" style="transform: rotate(${angle}deg);">
-                    <rect x="2" y="2" width="26" height="8" rx="2" fill="${color}" stroke="#DC143C" stroke-width="1"/>
-                    <rect x="4" y="3" width="3" height="3" fill="#87CEEB" opacity="0.7"/>
-                    <rect x="9" y="3" width="3" height="3" fill="#87CEEB" opacity="0.7"/>
-                    <rect x="14" y="3" width="3" height="3" fill="#87CEEB" opacity="0.7"/>
-                    <rect x="19" y="3" width="3" height="3" fill="#87CEEB" opacity="0.7"/>
-                </svg>`;
-            } else if(type === 'motorcycle') {
-                color = '#4169E1';
-                width = 14;
-                height = 8;
-                svg = `<svg width="${width}" height="${height}" style="transform: rotate(${angle}deg);">
-                    <rect x="3" y="3" width="8" height="2" rx="1" fill="${color}" stroke="#0000CD" stroke-width="1"/>
-                    <circle cx="4" cy="5" r="2" fill="#333"/>
-                    <circle cx="10" cy="5" r="2" fill="#333"/>
-                </svg>`;
-            } else if(type === 'ambulance') {
-                color = '#FFFFFF';
-                width = 22;
-                height = 11;
-                svg = `<svg width="${width}" height="${height}" style="transform: rotate(${angle}deg);">
-                    <rect x="2" y="2" width="18" height="7" rx="2" fill="${color}" stroke="#FF0000" stroke-width="2"/>
-                    <rect x="10" y="4" width="1" height="3" fill="#FF0000"/>
-                    <rect x="8" y="5" width="5" height="1" fill="#FF0000"/>
-                    <rect x="4" y="3" width="3" height="2" fill="#87CEEB" opacity="0.6"/>
-                </svg>`;
-            }
-            
-            return svg;
-        }
-        
-        socket.on('update', function(data) {
-            document.getElementById('vehicle-count').textContent = Object.keys(data.vehicles || {}).length;
-            document.getElementById('avg-speed').textContent = data.avg_speed + ' km/h';
-            document.getElementById('waiting').textContent = data.waiting;
-            document.getElementById('sim-time').textContent = data.time + 's';
-            document.getElementById('signals').textContent = Object.keys(data.traffic_lights || {}).length;
-            
-            // Update vehicles
-            for(var id in data.vehicles) {
-                var veh = data.vehicles[id];
-                var lon = veh.pos[0];
-                var lat = veh.pos[1];
-                var angle = veh.angle - 90; // Adjust for proper orientation
-                var type = veh.type;
-                
-                if(!vehicles[id]) {
-                    var icon = L.divIcon({
-                        html: getVehicleSVG(type, angle),
-                        className: '',
-                        iconSize: [30, 15],
-                        iconAnchor: [15, 7.5]
-                    });
-                    vehicles[id] = L.marker([lat, lon], {icon: icon}).addTo(map);
-                } else {
-                    var icon = L.divIcon({
-                        html: getVehicleSVG(type, angle),
-                        className: '',
-                        iconSize: [30, 15],
-                        iconAnchor: [15, 7.5]
-                    });
-                    vehicles[id].setIcon(icon);
-                    vehicles[id].setLatLng([lat, lon]);
-                }
-            }
-            
-            for(var id in vehicles) {
-                if(!data.vehicles[id]) {
-                    map.removeLayer(vehicles[id]);
-                    delete vehicles[id];
-                }
-            }
-            
-            // Update traffic lights as lines
-            for(var tlId in data.traffic_lights) {
-                var tl = data.traffic_lights[tlId];
-                var lon = tl.pos[0];
-                var lat = tl.pos[1];
-                var state = tl.state;
-                var angle = tl.angle || 0;
-                
-                var color = state === 'green' ? '#00ff00' : (state === 'yellow' ? '#ffff00' : '#ff0000');
-                
-                if(!trafficLights[tlId]) {
-                    var icon = L.divIcon({
-                        html: `<div class="traffic-light-line" style="background: ${color}; color: ${color}; transform: rotate(${angle}deg);"></div>`,
-                        className: '',
-                        iconSize: [30, 4],
-                        iconAnchor: [15, 2]
-                    });
-                    trafficLights[tlId] = L.marker([lat, lon], {icon: icon, zIndexOffset: 1000}).addTo(map);
-                } else {
-                    var icon = L.divIcon({
-                        html: `<div class="traffic-light-line" style="background: ${color}; color: ${color}; transform: rotate(${angle}deg);"></div>`,
-                        className: '',
-                        iconSize: [30, 4],
-                        iconAnchor: [15, 2]
-                    });
-                    trafficLights[tlId].setIcon(icon);
-                }
-            }
-        });
-        
-        function togglePlay() {
-            isPlaying = !isPlaying;
-            var btn = document.getElementById('playBtn');
-            
-            if(isPlaying) {
-                btn.textContent = '⏸';
-                btn.classList.add('active');
-                socket.emit('start');
-            } else {
-                btn.textContent = '▶';
-                btn.classList.remove('active');
-                socket.emit('pause');
-            }
-        }
-        
-        function resetSim() {
-            socket.emit('reset');
-            for(var id in vehicles) map.removeLayer(vehicles[id]);
-            for(var id in trafficLights) map.removeLayer(trafficLights[id]);
-            vehicles = {};
-            trafficLights = {};
-            isPlaying = false;
-            document.getElementById('playBtn').textContent = '▶';
-            document.getElementById('playBtn').classList.remove('active');
-        }
-        
-        function speedUp() {
-            playSpeed = playSpeed >= 3 ? 0.5 : playSpeed + 0.5;
-            socket.emit('speed', {speed: playSpeed});
-            document.getElementById('speedBtn').textContent = playSpeed + 'x';
-        }
-    </script>
-</body>
-</html>
-'''
+# Store closed streets and available streets
+closed_streets = set()
+available_streets = []
+blocked_edges = {}
 
 @app.route('/')
 def index():
-    return render_template_string(HTML)
+    return send_file('frame.html')
+
+@app.route('/api/streets')
+def get_streets():
+    """API endpoint to get list of all available streets/edges - DYNAMIC"""
+    global available_streets
+    
+    # Dynamically fetch current streets from SUMO if simulation is running
+    if simulation_running:
+        load_available_streets()  # Use the bounded filter function
+
+    
+    return jsonify({
+        'streets': available_streets,
+        'total': len(available_streets),
+        'closed': list(closed_streets)
+    })
+
+@app.route('/style.css')
+def serve_css():
+    return send_file('style.css', mimetype='text/css')
+
+
+@app.route('/api/metrics')
+def get_metrics():
+    """API endpoint for metrics"""
+    return jsonify({
+        'status': 'connected',
+        'closed_streets': list(closed_streets),
+        'available_streets': len(available_streets)
+    })
 
 simulation_running = False
 simulation_paused = False
 simulation_speed = 0.1
+
+def get_all_edge_lanes(edge_id):
+    """Get all lanes for an edge"""
+    try:
+        num_lanes = traci.edge.getLaneNumber(edge_id)
+        return [f"{edge_id}_{i}" for i in range(num_lanes)]
+    except:
+        return []
+
 
 def get_vehicle_type(vtype):
     vtype_lower = vtype.lower()
@@ -343,30 +87,77 @@ def get_traffic_light_state(state):
     else:
         return 'red'
 
-def get_network_bounds():
-    """Get network boundaries from SUMO"""
+def load_available_streets():
+    """Load ONLY MAJOR streets (big roads with multiple lanes)"""
+    global available_streets
     try:
-        boundary = traci.simulation.getNetBoundary()
-        # boundary returns ((min_x, min_y), (max_x, max_y))
-        min_x, min_y = boundary[0]
-        max_x, max_y = boundary[1]
+        edge_list = traci.edge.getIDList()
+        available_streets = []
         
-        # Convert to geo coordinates
-        sw_lon, sw_lat = traci.simulation.convertGeo(min_x, min_y)
-        ne_lon, ne_lat = traci.simulation.convertGeo(max_x, max_y)
+        print("🔍 Filtering MAJOR streets in bounded region...")
+        for edge in edge_list:
+            if edge.startswith(':'):
+                continue
+            
+            try:
+                # Only include streets with 2+ lanes (major roads)
+                lanes = traci.edge.getLaneNumber(edge)
+                if lanes < 2:
+                    continue
+                
+                # Check if within bounds
+                lane_id = edge + '_0'
+                shape = traci.lane.getShape(lane_id)
+                
+                # Check if any point is within bounds
+                in_bounds = False
+                for x, y in shape:
+                    lon, lat = traci.simulation.convertGeo(x, y)
+                    if (BOUNDS['min_lat'] <= lat <= BOUNDS['max_lat'] and 
+                        BOUNDS['min_lon'] <= lon <= BOUNDS['max_lon']):
+                        in_bounds = True
+                        break
+                
+                if in_bounds:
+                    available_streets.append(edge)
+            except:
+                continue
         
-        return {
-            'southwest': [sw_lat, sw_lon],
-            'northeast': [ne_lat, ne_lon],
-            'center': [(sw_lat + ne_lat) / 2, (sw_lon + ne_lon) / 2]
-        }
-    except:
-        return None
+        print(f"✅ Loaded {len(available_streets)} MAJOR streets")
+        
+        socketio.emit('streets_loaded', {
+            'streets': available_streets,
+            'total': len(available_streets)
+        })
+    except Exception as e:
+        print(f"❌ Error loading streets: {e}")
+        available_streets = []
+
+
+def get_edge_geometry(edge_id):
+    """Get the geographical coordinates of an edge for drawing"""
+    try:
+        lanes = traci.edge.getLaneNumber(edge_id)
+        if lanes > 0:
+            lane_id = edge_id + '_0'
+            shape = traci.lane.getShape(lane_id)
+            
+            coords = []
+            for x, y in shape:
+                lon, lat = traci.simulation.convertGeo(x, y)
+                coords.append([lat, lon])
+            
+            return coords
+    except Exception as e:
+        print(f"Error getting geometry for {edge_id}: {e}")
+    return None
 
 def run_sumo():
     global simulation_running, simulation_paused
     print("Starting SUMO simulation...")
     traci.start(["sumo", "-c", r"C:\Projects\FDRL-Traffic\FDRL\sumo_files\Berlin\osm.sumocfg"])
+    
+    load_available_streets()
     
     step = 0
     while step < 7200 and simulation_running:
@@ -378,9 +169,29 @@ def run_sumo():
             waiting = 0
             count = 0
             
-            # Get vehicles
+                        # Get vehicles (HIDE vehicles on closed streets)
+            # Get vehicles (REMOVE vehicles that will use blocked streets)
             for v in traci.vehicle.getIDList():
                 try:
+                    # Get current road and route
+                    road_id = traci.vehicle.getRoadID(v)
+                    
+                    # Check if vehicle will cross any blocked street in its route
+                    try:
+                        route_edges = traci.vehicle.getRoute(v)
+                        will_cross_blocked = any(edge in closed_streets for edge in route_edges)
+                        
+                        # Remove vehicle if it will cross a blocked street
+                        if will_cross_blocked or road_id in closed_streets:
+                            traci.vehicle.remove(v)
+                            continue
+                    except:
+                        pass
+                    
+                    # Skip if on closed street
+                    if road_id in closed_streets:
+                        continue
+                    
                     x, y = traci.vehicle.getPosition(v)
                     lon, lat = traci.simulation.convertGeo(x, y)
                     angle = traci.vehicle.getAngle(v)
@@ -399,6 +210,7 @@ def run_sumo():
                     count += 1
                 except:
                     pass
+
             
             # Get traffic lights with lane angle
             for tl_id in traci.trafficlight.getIDList():
@@ -407,11 +219,10 @@ def run_sumo():
                     if links:
                         lane = links[0][0][0]
                         shape = traci.lane.getShape(lane)
-                        x, y = shape[-1]  # End of lane
+                        x, y = shape[-1]
                         lon, lat = traci.simulation.convertGeo(x, y)
                         state = traci.trafficlight.getRedYellowGreenState(tl_id)
                         
-                        # Calculate lane angle
                         if len(shape) >= 2:
                             import math
                             x1, y1 = shape[-2]
@@ -445,6 +256,7 @@ def run_sumo():
     simulation_running = False
     print("Simulation finished")
 
+
 @socketio.on('start')
 def handle_start():
     global simulation_running, simulation_paused
@@ -460,20 +272,152 @@ def handle_pause():
 
 @socketio.on('reset')
 def handle_reset():
-    global simulation_running
+    global simulation_running, closed_streets
     simulation_running = False
+    closed_streets.clear()
 
 @socketio.on('speed')
 def handle_speed(data):
     global simulation_speed
     simulation_speed = 0.1 / data['speed']
 
-@app.route('/api/bounds')
-def get_bounds():
+@socketio.on('get_streets')
+def handle_get_streets():
+    """Socket event to get street list - DYNAMIC"""
     if simulation_running:
-        bounds = get_network_bounds()
-        return jsonify(bounds)
-    return jsonify({'error': 'Simulation not running'})
+        load_available_streets()  # This uses BOUNDS filtering
+        
+        socketio.emit('streets_list', {
+            'streets': available_streets,
+            'total': len(available_streets),
+            'closed': list(closed_streets)
+        })
+    else:
+        socketio.emit('streets_list', {
+            'streets': [],
+            'total': 0,
+            'closed': [],
+            'error': 'Simulation not running'
+        })
+
+@socketio.on('close_street')
+def handle_close_street(data):
+    """Close/block a street and REMOVE all vehicles on it"""
+    global closed_streets
+    street = data.get('street')
+    
+    if not street:
+        socketio.emit('street_status', {'success': False, 'error': 'No street specified'})
+        return
+    
+    if not simulation_running:
+        socketio.emit('street_status', {'success': False, 'error': 'Simulation not running'})
+        return
+    
+    try:
+        if street not in available_streets:
+            socketio.emit('street_status', {'success': False, 'error': f'Street "{street}" not found'})
+            return
+        
+        if street in closed_streets:
+            socketio.emit('street_status', {'success': False, 'error': f'Street already closed'})
+            return
+        
+        edge_coords = get_edge_geometry(street)
+        
+        # Block the edge
+        traci.edge.setDisallowed(street, ['passenger', 'taxi', 'bus', 'truck', 'trailer', 
+                                           'motorcycle', 'moped', 'bicycle', 'pedestrian',
+                                           'emergency', 'delivery'])
+        
+        # REMOVE all vehicles currently on this edge
+        vehicles_on_edge = traci.edge.getLastStepVehicleIDs(street)
+        removed_count = 0
+        for veh_id in vehicles_on_edge:
+            try:
+                traci.vehicle.remove(veh_id)
+                removed_count += 1
+            except:
+                pass
+        
+        closed_streets.add(street)
+        
+        print(f"🚫 Street CLOSED: {street} - Removed {removed_count} vehicles")
+        
+        socketio.emit('street_status', {
+            'success': True,
+            'action': 'closed',
+            'street': street,
+            'message': f'Street {street} closed - {removed_count} vehicles removed',
+            'closed_streets': list(closed_streets),
+            'edge_coords': edge_coords
+        })
+        
+    except Exception as e:
+        print(f"❌ Error closing street {street}: {e}")
+        socketio.emit('street_status', {'success': False, 'error': str(e)})
+
+
+
+
+@socketio.on('open_street')
+def handle_open_street(data):
+    """Reopen a closed street"""
+    global closed_streets
+    street = data.get('street')
+    
+    if not street:
+        socketio.emit('street_status', {
+            'success': False,
+            'error': 'No street specified'
+        })
+        return
+    
+    if not simulation_running:
+        socketio.emit('street_status', {
+            'success': False,
+            'error': 'Simulation not running'
+        })
+        return
+    
+    try:
+        if street not in closed_streets:
+            socketio.emit('street_status', {
+                'success': False,
+                'error': f'Street "{street}" is not closed',
+                'street': street
+            })
+            return
+        
+        traci.edge.setAllowed(street, ['passenger', 'taxi', 'bus', 'truck', 'trailer',
+                                        'motorcycle', 'moped', 'bicycle', 'pedestrian',
+                                        'emergency', 'delivery'])
+        
+        closed_streets.discard(street)
+        
+        print(f"✅ Street OPENED: {street}")
+        
+        socketio.emit('street_status', {
+            'success': True,
+            'action': 'opened',
+            'street': street,
+            'message': f'Street {street} opened successfully',
+            'closed_streets': list(closed_streets)
+        })
+        
+    except Exception as e:
+        print(f"❌ Error opening street {street}: {e}")
+        socketio.emit('street_status', {
+            'success': False,
+            'error': str(e),
+            'street': street
+        })
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000)
+    print("=" * 60)
+    print("🚦 Vegha Traffic Management System")
+    print("=" * 60)
+    print("Starting Flask-SocketIO server...")
+    print("Server available at: http://localhost:5000")
+    print("=" * 60)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
